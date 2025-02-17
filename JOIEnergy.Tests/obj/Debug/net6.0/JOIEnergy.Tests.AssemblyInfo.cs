@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("JOIEnergy.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+41b3e28be7bfbad8eb764bf7c0347d53ab1bb284")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+108fa79695a2a3e69267e9661468b74797ab3883")]
 [assembly: System.Reflection.AssemblyProductAttribute("JOIEnergy.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("JOIEnergy.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
