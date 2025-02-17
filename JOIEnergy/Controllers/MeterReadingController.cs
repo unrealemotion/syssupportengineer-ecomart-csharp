@@ -48,12 +48,17 @@ namespace JOIEnergy.Controllers
             string result = _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
             if (string.IsNullOrEmpty(result))
             {
-                return new OkObjectResult("{}"); // Success
+                return new OkObjectResult("Readings stored successfully."); // Success - new readings added
+            }
+            else if (result == "Reading(s) updated.")
+            {
+                return new OkObjectResult(result); // Success - readings updated.
             }
             else
             {
-                return new BadRequestObjectResult(result); // Return error message
+                return new BadRequestObjectResult(result); // Return the validation error message
             }
+
         }
         //Check for null smartMeterId, and empty smartMeterId, and null electricityReadings, and empty electricity readings
         private bool IsMeterReadingsValid(MeterReadings meterReadings)
