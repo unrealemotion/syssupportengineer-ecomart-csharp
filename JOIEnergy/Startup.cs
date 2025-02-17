@@ -13,20 +13,33 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JOIEnergy
 {
+
+    // Startup.cs
+    // This class configures the ASP.NET Core application. It sets up services,
+    // dependency injection, and the request processing pipeline.
     public class Startup
     {
+        private const string MOST_EVIL_PRICE_PLAN_ID = "price-plan-0";
+        private const string RENEWABLES_PRICE_PLAN_ID = "price-plan-1";
+        private const string STANDARD_PRICE_PLAN_ID = "price-plan-2";
+        // Constructor: Initializes the Startup class with configuration settings.
+        // Parameters:
+        //   configuration: An IConfiguration instance representing the application's configuration.
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
         }
 
+        // Gets the application's configuration.
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        // Configures the services used by the application. This method is called by the runtime.
+        // Parameters:
+        //   services: An IServiceCollection instance to register services with.
         public void ConfigureServices(IServiceCollection services)
         {
             var readings =
-                GenerateMeterElectricityReadings();
+                 GenerateMeterElectricityReadings();
 
             var pricePlans = new List<PricePlan> {
                 new PricePlan{
@@ -46,7 +59,9 @@ namespace JOIEnergy
                 }
             };
 
+            // Add MVC services to the container.  Disabling endpoint routing for compatibility with older routing style.
             services.AddMvc(options => options.EnableEndpointRouting = false);
+            // Register services for dependency injection.
             services.AddTransient<IAccountService, AccountService>();
             services.AddTransient<IMeterReadingService, MeterReadingService>();
             services.AddTransient<IPricePlanService, PricePlanService>();
@@ -55,18 +70,24 @@ namespace JOIEnergy
             services.AddSingleton((IServiceProvider arg) => SmartMeterToPricePlanAccounts);
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        // Configures the HTTP request pipeline. This method is called by the runtime.
+        // Parameters:
+        //   app: An IApplicationBuilder instance to configure the application's request pipeline.
+        //   env: An IWebHostEnvironment instance providing information about the hosting environment..
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
-                app.UseDeveloperExceptionPage();
+                app.UseDeveloperExceptionPage(); // Enables the developer exception page for debugging in development.
             }
 
-            app.UseMvc();
+            app.UseMvc(); // Adds MVC middleware to the request pipeline.
         }
 
-        private Dictionary<string, List<ElectricityReading>> GenerateMeterElectricityReadings() {
+        // Generates sample meter electricity readings for testing purposes.
+        // Returns: A dictionary mapping smart meter IDs to lists of electricity readings.
+        private Dictionary<string, List<ElectricityReading>> GenerateMeterElectricityReadings()
+        {
             var readings = new Dictionary<string, List<ElectricityReading>>();
             var generator = new ElectricityReadingGenerator();
             var smartMeterIds = SmartMeterToPricePlanAccounts.Select(mtpp => mtpp.Key);
@@ -78,6 +99,8 @@ namespace JOIEnergy
             return readings;
         }
 
+        // Gets the hardcoded smart meter to price plan account mappings.
+        // Returns: A dictionary mapping smart meter IDs to supplier enums.
         public Dictionary<String, Supplier> SmartMeterToPricePlanAccounts
         {
             get
