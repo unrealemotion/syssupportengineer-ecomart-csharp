@@ -19,6 +19,6 @@ namespace JOIEnergy.Services
         // Parameters:
         //   smartMeterId: The ID of the smart meter.
         //   electricityReadings: A list of ElectricityReading objects to store.
-        void StoreReadings(string smartMeterId, List<ElectricityReading> electricityReadings);
+        string StoreReadings(string smartMeterId, List<ElectricityReading> electricityReadings);
     }
 }

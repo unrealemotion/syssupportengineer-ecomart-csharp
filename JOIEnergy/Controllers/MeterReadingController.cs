@@ -34,15 +34,34 @@ namespace JOIEnergy.Controllers
         //   An ObjectResult representing the outcome of the operation.
         //   Returns 200 OK with an empty body on success.
         //   Returns 400 Bad Request if the input is invalid.
+
         public ObjectResult Post([FromBody] MeterReadings meterReadings)
         {
             if (!IsMeterReadingsValid(meterReadings))
             {
                 return new BadRequestObjectResult("Internal Server Error");
             }
-            _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
-            return new OkObjectResult("{}");
+
+            string result = _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
+            if (string.IsNullOrEmpty(result))
+            {
+                return new OkObjectResult("{}"); // Success
+            }
+            else
+            {
+                return new BadRequestObjectResult(result); // Return error message
+            }
         }
+
+        //public ObjectResult Post([FromBody] MeterReadings meterReadings)
+        //{
+        //    if (!IsMeterReadingsValid(meterReadings))
+        //    {
+        //        return new BadRequestObjectResult("Internal Server Error");
+        //    }
+        //    _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
+        //    return new OkObjectResult("{}");
+        //}
 
         // Validates the MeterReadings object received in the request.
         // Parameters:
