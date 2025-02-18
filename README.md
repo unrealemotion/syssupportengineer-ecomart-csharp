@@ -1,364 +1,427 @@
-# JOIEnergy Project - README
+# JOIEnergy Project: Bug Identification and Remediation - Stage One
 
-This document provides an overview of the JOIEnergy project, including its purpose, API endpoints, setup instructions, and usage examples.
+This document details the bugs identified and fixed in the initial stage of the JOIEnergy project.
 
-## Table of Contents
+## Part 1: Summary of Bugs and Minor Adjustments
 
-1.  [Project Overview](#project-overview)
-    *   [Welcome to PowerDale](#welcome-to-powerdale)
-    *   [Introducing JOI Energy](#introducing-joi-energy)
-    *   [Problem Statement](#problem-statement)
-    *   [Users](#users)
-2.  [API Documentation](#api-documentation)
-    *   [Store Readings](#store-readings)
-    *   [Get Stored Readings](#get-stored-readings)
-    *   [View Current Price Plan and Compare Usage Cost](#view-current-price-plan-and-compare-usage-cost)
-    *   [View Recommended Price Plans](#view-recommended-price-plans)
-3.  [Setup and Usage](#setup-and-usage)
-    *   [Requirements](#requirements)
-    *   [Compatible IDEs](#compatible-ides)
-    *   [Useful Commands](#useful-commands)
-        *   [Build the Project](#build-the-project)
-        *   [Run the Tests](#run-the-tests)
-        *   [Run the Application](#run-the-application)
-4. [Code Structure](#code-structure)
-5. [Improvements and Fixes](#improvements)
+### 1.1 Bugs
 
-## 1. Project Overview <a name="project-overview"></a>
+1.  **`MeterReadingService.GetReadings`:** Always returned readings for `"smart-meter-2"` regardless of the requested smart meter ID.
+2.  **`PricePlanService.calculateTimeElapsed`**: Compiling error due to incorrect member access.
+3.  **`PricePlanService.calculateCost`:** Did not correctly calculate energy costs:
+    *   Incorrectly calculated average reading and time elapsed.
+    *   Did not incorporate peak time multipliers.
+    *   Incorrectly iterated through readings after sorting was introduced.
+4.  **`MeterReadingController.IsMeterReadingsValid`:**
+    *   Incorrect null checks.
+    *   Incorrect return type (should be `bool`).
+    *   Incorrect logic for checking null/empty values.
 
-### Welcome to PowerDale <a name="welcome-to-powerdale"></a>
+### 1.2 Minor Adjustments
 
-PowerDale is a fictional small town with approximately 100 residents.  Most houses have smart meters installed, capable of saving and transmitting energy usage data.  Three primary energy providers operate in PowerDale, each with distinct pricing structures:
+*   **Sorted Readings:** The `MeterReadingService.GetReadings` method now returns readings sorted chronologically by time.
+*   **Sorted Readings in calculateCost:** The `PricePlanService.calculateCost` method now sorts the readings chronologically by time *before* calculation (redundant now, but included for completeness of the history of changes).
 
-*   Dr. Evil's Dark Energy
-*   The Green Eco
-*   Power for Everyone
+## Part 2: Detailed Bug Descriptions (with Code Snippets)
 
-### Introducing JOI Energy <a name="introducing-joi-energy"></a>
+### 2.1 `MeterReadingService.GetReadings` Bug
 
-JOI Energy (formerly EcoMart) is an energy industry startup.  Instead of selling energy directly, JOIEnergy differentiates itself by analyzing customer energy consumption data from smart meters and recommending the most cost-effective energy supplier based on individual usage patterns.
+**Description:** The `GetReadings` method incorrectly returned readings for a hardcoded smart meter ID ("smart-meter-2") instead of using the `smartMeterId` parameter passed to the method.
 
-### Problem Statement <a name="problem-statement"></a>
-
-The project's immediate goal is to stabilize the existing application by maintaining and improving the code. Simultaneously, the development team is working on a new API for customer and smart meter interaction.  Due to staffing shortages (annual leave and sickness), the support team is under-resourced, making it critical to maintain application stability and minimize disruptions.
-
-### Users <a name="users"></a>
-
-Five members of the JOI accounts team are participating in a trial of the new JOI software, sharing their energy data for testing purposes.  Their details are:
-
-| User    | Smart Meter ID | Power Supplier        |
-| :------ | :------------- | :-------------------- |
-| Sarah   | smart-meter-0  | Dr. Evil's Dark Energy |
-| Peter   | smart-meter-1  | The Green Eco          |
-| Charlie | smart-meter-2  | Dr. Evil's Dark Energy |
-| Andrea  | smart-meter-3  | Power for Everyone     |
-| Alex    | smart-meter-4  | The Green Eco          |
-
-These user details and smart meter IDs are used throughout the application and in the API examples.
-
-## 2. API Documentation <a name="api-documentation"></a>
-
-JOIEnergy provides a RESTful API for managing and analyzing energy consumption data.  All API endpoints are relative to the base URL (typically `http://localhost:5000` when running locally).
-
-### Store Readings <a name="store-readings"></a>
-
-**Endpoint:** `POST /readings/store`
-
-**Description:** Stores electricity readings for a specific smart meter.
-
-**Request Body (JSON):**
-
-```json
+```csharp
+// Incorrect Snippet (MeterReadingService.cs)
+public List<ElectricityReading> GetReadings(string smartMeterId)
 {
-  "smartMeterId": "<smartMeterId>",
-  "electricityReadings": [
-    { "time": "<time>", "reading": <reading> },
-    { "time": "<time>", "reading": <reading> },
-    ...
-  ]
+    if (MeterAssociatedReadings.ContainsKey(smartMeterId))
+    {
+        return MeterAssociatedReadings["smart-meter-2"]; // Always returns "smart-meter-2"
+    }
+
+    return new List<ElectricityReading>();
 }
-content_copy
-download
-Use code with caution.
-Markdown
+```
 
-smartMeterId: (string, required) The ID of the smart meter (e.g., "smart-meter-0").
+### 2.2 `PricePlanService.calculateTimeElapsed` Bug
+**Description:** The `calculateTimeElapsed` method in `PricePlanService` did not correctly calculate the earliest time.
 
-electricityReadings: (array, required) An array of electricity reading objects.
-
-time: (string, required) The timestamp of the reading in ISO 8601 format (e.g., "2020-11-11T08:00:00.0000000+00:00").
-
-reading: (decimal, required) The electricity reading value (delta since the last reading).
-
-Response:
-
-200 OK: Returns an empty JSON object {} on success.
-
-400 Bad Request: Returns "Internal Server Error" if the input is invalid (e.g., missing smartMeterId or electricityReadings, or if the readings are not in chronological order).
-
-Example (using curl):
-
-curl -X POST \
-  -H "Content-Type: application/json" \
-  "http://localhost:5000/readings/store" \
-  -d '{
-    "smartMeterId": "smart-meter-0",
-    "electricityReadings": [
-      {"time": "2020-11-11T08:00:00Z", "reading": 0.0503},
-      {"time": "2020-11-11T08:00:10Z", "reading": 0.0505},
-      {"time": "2020-11-11T08:00:20Z", "reading": 0.0510},
-      {"time": "2020-11-12T08:00:00Z", "reading": 0.0213}
-    ]
-  }'
-content_copy
-download
-Use code with caution.
-Bash
-Get Stored Readings <a name="get-stored-readings"></a>
-
-Endpoint: GET /readings/read/{smartMeterId}
-
-Description: Retrieves the stored electricity readings for a specific smart meter.
-
-Parameters:
-
-smartMeterId: (string, required) The ID of the smart meter.
-
-Response:
-
-200 OK: Returns a JSON array of electricity reading objects, sorted by time, in the same format as the electricityReadings array in the POST /readings/store request. Returns an empty array [] if no readings are found for the given smartMeterId.
-
-Example (using curl):
-
-curl "http://localhost:5000/readings/read/smart-meter-0"
-content_copy
-download
-Use code with caution.
-Bash
-
-Example Response:
-
-[
-  { "time": "2020-11-11T08:00:00Z", "reading": 0.0503 },
-  { "time": "2020-11-11T08:00:10Z", "reading": 0.0505 },
-  { "time": "2020-11-11T08:00:20Z", "reading": 0.0510 },
-  { "time": "2020-11-12T08:00:00Z", "reading": 0.0213 }
-]
-content_copy
-download
-Use code with caution.
-Json
-View Current Price Plan and Compare Usage Cost <a name="view-current-price-plan-and-compare-usage-cost"></a>
-
-Endpoint: GET /price-plans/compare-all/{smartMeterId}
-
-Description: Calculates and returns the total cost of electricity consumption for a given smart meter, for each available price plan.
-
-Parameters:
-
-smartMeterId: (string, required) The ID of the smart meter.
-
-Response:
-
-200 OK: Returns a JSON object where the keys are the names of the energy suppliers (e.g., "DrEvilsDarkEnergy") and the values are the calculated costs (decimal) for that supplier's price plan.
-
-404 Not Found: Returns a string indicating that the smart meter ID was not found. This occurs if the smart meter ID does not exist in the AccountService's _smartMeterToPricePlanAccounts dictionary, or if there are no readings available for the given smart meter.
-
-Example (using curl):
-
-curl "http://localhost:5000/price-plans/compare-all/smart-meter-0"
-content_copy
-download
-Use code with caution.
-Bash
-
-Example Response:
-
+```csharp
+// Incorrect Snippet (PricePlanService.cs)
+private decimal calculateTimeElapsed(List<ElectricityReading> electricityReadings)
 {
-  "DrEvilsDarkEnergy": 94.87181867550794,
-  "TheGreenEco": 18.974363735101587,
-  "PowerForEveryone": 9.487181867550794
+    var first = electricityReadings.readings.Time; //Incorrect way of finding the min time
+    var last = electricityReadings.Max(reading => reading.Time);
+    return (decimal)(last - first).TotalHours;
 }
-content_copy
-download
-Use code with caution.
-Json
-View Recommended Price Plans <a name="view-recommended-price-plans"></a>
+```
+
+### 2.3 `PricePlanService.calculateCost` Bugs
+
+**Description:** The original `calculateCost` method had multiple issues: it incorrectly calculated an "average" reading, incorrectly calculated a time-weighted average, and did not use the `PricePlan.GetPrice()` method to account for peak time multipliers.  After introducing sorting, the iteration was also incorrect.
+
+```csharp
+// Incorrect Snippet (PricePlanService.cs - Before Sorting Fix)
+private decimal calculateCost(List<ElectricityReading> electricityReadings, PricePlan pricePlan)
+{
+    var average = calculateAverageReading(electricityReadings); // Incorrect average
+    var timeElapsed = calculateTimeElapsed(electricityReadings);
+    var averagedCost = average / timeElapsed; // Flawed average cost
+    return averagedCost * pricePlan.UnitRate; // Ignores peak times
+}
+```
+
+```csharp
+// Incorrect Snippet (PricePlanService.cs - After Initial Sorting Fix, Before Final Optimization)
+private decimal calculateCost(List<ElectricityReading> electricityReadings, PricePlan pricePlan)
+{
+    decimal totalCost = 0;
+    List<ElectricityReading> sortedReadings = electricityReadings.OrderBy(r => r.Time).ToList();
+
+    for (int i = 0; i < sortedReadings.Count - 1; i++) // Unnecessary iteration
+    {
+        decimal energyConsumed = sortedReadings[i + 1].Reading - sortedReadings[i].Reading;
+        decimal price = pricePlan.GetPrice(sortedReadings[i].Time);
+        totalCost += energyConsumed * price;
+    }
+    return totalCost;
+}
+```
+
+### 2.4 `MeterReadingController.IsMeterReadingsValid` Bugs
+
+**Description:** The `IsMeterReadingsValid` method had incorrect null checks, an incorrect return type, and flawed logic for checking for null or empty values.
+
+```csharp
+// Incorrect Snippet (MeterReadingController.cs)
+private String IsMeterReadingsValid(MeterReadings meterReadings) // Incorrect return type
+{
+    String smartMeterId = meterReadings.SmartMeterId;
+    List<ElectricityReading> electricityReadings = meterReadings.ElectricityReadings;
+    return smartMeterId == null && smartMeterId.Any() // Incorrect logic
+        && electricityReadings == null && electricityReadings.Any(); // Incorrect logic
+}
+```
+
+## Part 3: Bug Fixes (Original and Rectified Code)
+
+### 3.1 `MeterReadingService.GetReadings` Fix
+
+**Original Code (with bug):**
+
+```csharp
+// Services/MeterReadingService.cs (ORIGINAL)
+using System;
+using System.Collections.Generic;
+using JOIEnergy.Domain;
+
+namespace JOIEnergy.Services
+{
+    public class MeterReadingService : IMeterReadingService
+    {
+        public Dictionary<string, List<ElectricityReading>> MeterAssociatedReadings { get; set; }
+
+        public MeterReadingService(Dictionary<string, List<ElectricityReading>> meterAssociatedReadings)
+        {
+            MeterAssociatedReadings = meterAssociatedReadings;
+        }
+
+        public List<ElectricityReading> GetReadings(string smartMeterId)
+        {
+            if (MeterAssociatedReadings.ContainsKey(smartMeterId))
+            {
+                return MeterAssociatedReadings["smart-meter-2"]; // BUG: Always returns "smart-meter-2"
+            }
+
+            return new List<ElectricityReading>();
+        }
+
+        public void StoreReadings(string smartMeterId, List<ElectricityReading> electricityReadings)
+        {
+            if (!MeterAssociatedReadings.ContainsKey(smartMeterId))
+            {
+                MeterAssociatedReadings.Add(smartMeterId, new List<ElectricityReading>());
+            }
+
+            electricityReadings.ForEach(electricityReading => MeterAssociatedReadings[smartMeterId].Add(electricityReading));
+        }
+    }
+}
+```
+
+**Rectified Code:**
+
+```csharp
+// Services/MeterReadingService.cs (FIXED - GetReadings now returns sorted readings)
+
+using System;
+using System.Collections.Generic;
+using System.Linq; // Import LINQ for OrderBy
+using JOIEnergy.Domain;
+
+namespace JOIEnergy.Services
+{
+    public class MeterReadingService : IMeterReadingService
+    {
+        public Dictionary<string, List<ElectricityReading>> MeterAssociatedReadings { get; set; }
+
+        public MeterReadingService(Dictionary<string, List<ElectricityReading>> meterAssociatedReadings)
+        {
+            MeterAssociatedReadings = meterAssociatedReadings;
+        }
+
+        // Retrieves the electricity readings for a given smart meter ID, sorted by time.
+        public List<ElectricityReading> GetReadings(string smartMeterId)
+        {
+            if (MeterAssociatedReadings.ContainsKey(smartMeterId))
+            {
+                // Return a *new* list that is sorted.  Don't modify the stored list directly.
+                return MeterAssociatedReadings[smartMeterId].OrderBy(r => r.Time).ToList(); //FIXED: now use smartMeterId and sort the output
+            }
+
+            return new List<ElectricityReading>();
+        }
+
+        public void StoreReadings(string smartMeterId, List<ElectricityReading> electricityReadings)
+        {
+            if (!MeterAssociatedReadings.ContainsKey(smartMeterId))
+            {
+                MeterAssociatedReadings.Add(smartMeterId, new List<ElectricityReading>());
+            }
+
+            electricityReadings.ForEach(electricityReading => MeterAssociatedReadings[smartMeterId].Add(electricityReading));
+        }
+    }
+}
+```
+
+### 3.2 and 3.3 `PricePlanService` Fixes
+
+**Original Code (with bugs):**
+
+```csharp
+// Services/PricePlanService.cs (ORIGINAL)
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using JOIEnergy.Domain;
+
+namespace JOIEnergy.Services
+{
+    public class PricePlanService : IPricePlanService
+    {
+        public interface Debug { void Log(string s); }; // Unused interface.
+
+        private readonly List<PricePlan> _pricePlans;
+        private IMeterReadingService _meterReadingService;
+
+        public PricePlanService(List<PricePlan> pricePlan, IMeterReadingService meterReadingService)
+        {
+            _pricePlans = pricePlan;
+            _meterReadingService = meterReadingService;
+        }
+
+        private decimal calculateAverageReading(List<ElectricityReading> electricityReadings)
+        {
+            var newSummedReadings = electricityReadings.Select(readings => readings.Reading).Aggregate((reading, accumulator) => reading + accumulator);
+            return newSummedReadings / electricityReadings.Count();
+        }
+
+        private decimal calculateTimeElapsed(List<ElectricityReading> electricityReadings)
+        {
+            var first = electricityReadings.readings.Time; //BUG: Incorrect way of finding min
+            var last = electricityReadings.Max(reading => reading.Time);
+            return (decimal)(last - first).TotalHours;
+        }
+
+        private decimal calculateCost(List<ElectricityReading> electricityReadings, PricePlan pricePlan)
+        {
+            var average = calculateAverageReading(electricityReadings);
+            var timeElapsed = calculateTimeElapsed(electricityReadings);
+            var averagedCost = average / timeElapsed;
+            return averagedCost * pricePlan.UnitRate; // BUG: Only uses the base UnitRate.
+        }
+
+        public Dictionary<String, decimal> GetConsumptionCostOfElectricityReadingsForEachPricePlan(String smartMeterId)
+        {
+            List<ElectricityReading> electricityReadings = _meterReadingService.GetReadings(smartMeterId);
+            if (!electricityReadings.Any())
+            {
+                return new Dictionary<string, decimal>();
+            }
+
+            return _pricePlans.ToDictionary(plan => plan.EnergySupplier.ToString(), plan => calculateCost(electricityReadings, plan));
+        }
+    }
+}
+```
+
+**Rectified Code (Final Version):**
+
+```csharp
+// Services/PricePlanService.cs (FIXED - Final, Optimized Version)
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using JOIEnergy.Domain;
+
+namespace JOIEnergy.Services
+{
+    public class PricePlanService : IPricePlanService
+    {
+        public interface Debug { void Log(string s); }; // Unused interface.
+
+        private readonly List<PricePlan> _pricePlans;
+        private IMeterReadingService _meterReadingService;
+
+        public PricePlanService(List<PricePlan> pricePlan, IMeterReadingService meterReadingService)
+        {
+            _pricePlans = pricePlan;
+            _meterReadingService = meterReadingService;
+        }
+
+        // CORRECTED and OPTIMIZED: Calculates cost using total consumption.
+        private decimal calculateCost(List<ElectricityReading> electricityReadings, PricePlan pricePlan)
+        {
+            // Sort the readings by Time (now redundant, but kept for historical context).
+            List<ElectricityReading> sortedReadings = electricityReadings.OrderBy(r => r.Time).ToList();
+
+            // Calculate total energy consumed (last reading - first reading).
+            decimal totalEnergyConsumed = sortedReadings.Last().Reading - sortedReadings.First().Reading;
+
+            // Get the price at the *beginning* of the consumption period.
+            decimal price = pricePlan.GetPrice(sortedReadings.First().Time);
+
+            // Calculate and return the total cost.
+            return totalEnergyConsumed * price;
+        }
+
+
+        // Calculates the consumption cost for each price plan.
+        public Dictionary<String, decimal> GetConsumptionCostOfElectricityReadingsForEachPricePlan(String smartMeterId)
+        {
+            List<ElectricityReading> electricityReadings = _meterReadingService.GetReadings(smartMeterId);
+
+            if (!electricityReadings.Any())
+            {
+                return new Dictionary<string, decimal>();
+            }
+
+            // Use the corrected calculateCost function.
+            return _pricePlans.ToDictionary(plan => plan.EnergySupplier.ToString(), plan => calculateCost(electricityReadings, plan));
+        }
+    }
+}
+```
+
+### 3.4 `MeterReadingController.IsMeterReadingsValid` Fixes
+
+**Original Code (with bugs):**
+
+```csharp
+// Controllers/MeterReadingController.cs (ORIGINAL)
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using JOIEnergy.Domain;
+using JOIEnergy.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace JOIEnergy.Controllers
+{
+    [Route("readings")]
+    public class MeterReadingController : Controller
+    {
+        private readonly IMeterReadingService _meterReadingService;
+
+        public MeterReadingController(IMeterReadingService meterReadingService)
+        {
+            _meterReadingService = meterReadingService;
+        }
+
+        [HttpPost("store")]
+        public ObjectResult Post([FromBody] MeterReadings meterReadings)
+        {
+            if (!IsMeterReadingsValid(meterReadings))
+            {
+                return new BadRequestObjectResult("Internal Server Error");
+            }
+
+            _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
+            return new OkObjectResult("{}");
+        }
+
+        private String IsMeterReadingsValid(MeterReadings meterReadings) //BUG: incorrect return type
+        {
+            String smartMeterId = meterReadings.SmartMeterId;
+            List<ElectricityReading> electricityReadings = meterReadings.ElectricityReadings;
+            return smartMeterId == null && smartMeterId.Any() // BUG: Incorrect null check and return type
+                && electricityReadings == null && electricityReadings.Any(); // BUG: Incorrect null check
+        }
+
+
+        [HttpGet("read/{smartMeterId}")]
+        public ObjectResult GetReading(string smartMeterId)
+        {
+            return new OkObjectResult(_meterReadingService.GetReadings(smartMeterId));
+        }
+    }
+}
+```
+
+**Rectified Code:**
+
+```csharp
+// Controllers/MeterReadingController.cs (FIXED)
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using JOIEnergy.Domain;
+using JOIEnergy.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace JOIEnergy.Controllers
+{
+    [Route("readings")]
+    public class MeterReadingController : Controller
+    {
+        private readonly IMeterReadingService _meterReadingService;
+
+        public MeterReadingController(IMeterReadingService meterReadingService)
+        {
+            _meterReadingService = meterReadingService;
+        }
+
+        [HttpPost("store")]
+        public ObjectResult Post([FromBody] MeterReadings meterReadings)
+        {
+            if (!IsMeterReadingsValid(meterReadings))
+            {
+                return new BadRequestObjectResult("Internal Server Error");
+            }
+
+            _meterReadingService.StoreReadings(meterReadings.SmartMeterId, meterReadings.ElectricityReadings);
+            return new OkObjectResult("{}");
+        }
+
+        // FIXED: Corrected return type and null checks.
+        private bool IsMeterReadingsValid(MeterReadings meterReadings)
+        {
+            String smartMeterId = meterReadings.SmartMeterId;
+            List<ElectricityReading> electricityReadings = meterReadings.ElectricityReadings;
+            // FIXED: Corrected logic to check for non-null and non-empty.
+            return smartMeterId != null && smartMeterId.Any()
+                && electricityReadings != null && electricityReadings.Any();
+        }
+
+
+        [HttpGet("read/{smartMeterId}")]
+        public ObjectResult GetReading(string smartMeterId)
+        {
+            return new OkObjectResult(_meterReadingService.GetReadings(smartMeterId));
+        }
+    }
+}
 
-Endpoint: GET /price-plans/recommend/{smartMeterId}?limit={limit}
-
-Description: Returns a list of recommended price plans, ordered from cheapest to most expensive, based on the historical consumption data of the specified smart meter. An optional limit parameter can be used to restrict the number of recommendations returned.
-
-Parameters:
-
-smartMeterId: (string, required) The ID of the smart meter.
-
-limit: (integer, optional) The maximum number of price plans to return.
-
-Response:
-
-200 OK: Returns a JSON array of key-value pairs, sorted by cost (ascending). Each key-value pair represents a price plan, with the "key" being the supplier name and the "value" being the calculated cost.
-
-404 Not Found: Returns if readings are not available for that Smart Meter ID
-
-Example (using curl):
-
-curl "http://localhost:5000/price-plans/recommend/smart-meter-0?limit=2"
-content_copy
-download
-Use code with caution.
-Bash
-
-Example Response:
-
-[
-  {
-    "key": "PowerForEveryone",
-    "value": 9.487181867550794
-  },
-  {
-    "key": "TheGreenEco",
-    "value": 18.974363735101587
-  }
-]
-content_copy
-download
-Use code with caution.
-Json
-3. Setup and Usage <a name="setup-and-usage"></a>
-Requirements <a name="requirements"></a>
-
-.NET 6.0 SDK (https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
-
-Compatible IDEs <a name="compatible-ides"></a>
-
-The project has been tested with:
-
-Visual Studio 2022 (17.1)
-
-Visual Studio for Mac (8.10)
-
-Visual Studio Code (1.64) with the C# extension
-
-Useful Commands <a name="useful-commands"></a>
-
-These commands should be executed from the root directory of the project (where the JOIEnergy.csproj file is located).
-
-Build the Project <a name="build-the-project"></a>
-dotnet build
-content_copy
-download
-Use code with caution.
-Bash
-
-This command compiles the project and its dependencies.
-
-Run the Tests <a name="run-the-tests"></a>
-dotnet test JOIEnergy.Tests
-content_copy
-download
-Use code with caution.
-Bash
-
-This command runs the unit tests in the JOIEnergy.Tests project.
-
-Run the Application <a name="run-the-application"></a>
-dotnet run --project JOIEnergy
-content_copy
-download
-Use code with caution.
-Bash
-
-This command starts the ASP.NET Core web application. The application will be accessible at http://localhost:5000 by default.
-
-4. Code Structure <a name="code-structure"></a>
-
-The project is organized into the following main folders:
-
-Controllers: Contains the API controllers (MeterReadingController.cs and PricePlanComparatorController.cs).
-
-Domain: Contains the domain models (ElectricityReading.cs, MeterReadings.cs, PricePlan.cs, and Supplier.cs).
-
-Enums: Supplier Enums (Supplier.cs)
-
-Generator: Contains the ElectricityReadingGenerator.cs class for generating sample data.
-
-Services: Contains the service classes that implement the business logic (AccountService.cs, IMeterReadingService.cs, IPricePlanService.cs, MeterReadingService.cs, and PricePlanService.cs).
-
-JOIEnergy.Tests Contains the Unit Tests.
-
-Key Classes and their responsibilities:
-
-MeterReadingController: Handles requests related to storing and retrieving meter readings.
-
-PricePlanComparatorController: Handles requests related to comparing price plans and recommending the best option.
-
-ElectricityReading: Represents a single electricity reading (timestamp and value).
-
-MeterReadings: Represents a collection of electricity readings for a specific smart meter.
-
-PricePlan: Represents an energy price plan, including unit rate and peak time multipliers.
-
-Supplier: Enum of available energy suppliers.
-
-ElectricityReadingGenerator: Generates sample electricity readings for testing.
-
-AccountService: Manages the association between smart meters and their assigned energy suppliers (price plans). Uses an in-memory dictionary for storage.
-
-MeterReadingService: Manages the storage and retrieval of electricity readings. Uses an in-memory dictionary for storage (data is not persistent across application restarts).
-
-PricePlanService: Calculates the cost of electricity consumption based on meter readings and price plans.
-
-Startup: Configures the ASP.NET Core application, including services, dependency injection, and the request processing pipeline. Also includes hardcoded data for smart meter to price plan mappings and generates sample meter readings.
-
-Program: Main entry point for application
-
-5. Improvements and Fixes <a name="improvements"></a>
-
-The provided code had several areas that needed improvement for robustness, correctness, and maintainability. Key changes made include:
-
-MeterReadingService.GetReadings:
-
-Corrected the logic to return readings for the requested smartMeterId, instead of always returning readings for "smart-meter-2".
-
-Returns a new, sorted list of readings to prevent modification of the stored data.
-
-PricePlanService.calculateCost:
-
-Critical Fix: The original logic did not correctly calculate the cost by considering the time of each reading and the applicable peak/off-peak rates. The corrected logic now:
-
-Sorts readings by time.
-
-Iterates through consecutive pairs of readings.
-
-Calculates the energy consumed during each interval.
-
-Retrieves the correct price (including peak time multipliers) for the start of each interval using PricePlan.GetPrice.
-
-Calculates the cost for each interval and accumulates the total cost.
-
-MeterReadingController.Post:
-
-Added input validation using IsMeterReadingsValid to check for null values and empty lists. Returns a 400 Bad Request if validation fails.
-
-MeterReadingController.IsMeterReadingsValid:
-
-Improved the input validation by directly check properties of meterReadings for null and emptiness
-
-PricePlanComparatorController:
-
-Added handling for cases where no readings are available for a given smart meter, returning a 404 Not Found response.
-
-Startup.GenerateMeterElectricityReadings:
-
-The ElectricityReadingGenerator now produces readings where each subsequent reading is larger than the previous one, simulating actual meter behavior, and the generated time sequence is incremental.
-
-Comments
-
-Added/Improved comments across the code base
-
-Redundant Code
-
-Removed redundant and commented out code
-
-These changes significantly improve the accuracy and reliability of the application, addressing the core issues identified in the original code.
