@@ -3,7 +3,6 @@
 namespace JOIEnergy.Services
 {
 
-    // Services/IPricePlanService.cs
     // Defines the interface for the PricePlanService, specifying the contract for calculating energy costs.
     public interface IPricePlanService
     {

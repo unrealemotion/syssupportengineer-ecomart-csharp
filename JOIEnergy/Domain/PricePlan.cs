@@ -6,7 +6,6 @@ using JOIEnergy.Enums;
 namespace JOIEnergy.Domain
 {
 
-    // Domain/PricePlan.cs
     // Represents an energy price plan offered by a supplier.
     public class PricePlan
     {

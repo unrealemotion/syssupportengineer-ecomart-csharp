@@ -15,29 +15,6 @@ namespace JOIEnergy.Generator
         {
 
         }
-
-        // Generates a list of electricity readings.
-        // Parameters:
-        //   number: The number of readings to generate.
-        // Returns: A list of ElectricityReading objects with random reading values and sequential timestamps.
-        //public List<ElectricityReading> Generate(int number)
-        //{
-        //    var readings = new List<ElectricityReading>();
-        //    var random = new Random();
-        //    for (int i = 0; i < number; i++)
-        //    {
-        //        var reading = (decimal)random.NextDouble();
-        //        var electricityReading = new ElectricityReading
-        //        {
-        //            Reading = reading,
-        //            Time = DateTime.Now.AddSeconds(-i * 10) // Creates readings with timestamps spaced 10 seconds apart.
-        //        };
-        //        readings.Add(electricityReading);
-        //    }
-        //    readings.Sort((reading1, reading2) => reading1.Time.CompareTo(reading2.Time)); // Sorts readings chronologically.
-        //    return readings;
-        //}
-
         public List<ElectricityReading> Generate(int number)
         {
             var readings = new List<ElectricityReading>();

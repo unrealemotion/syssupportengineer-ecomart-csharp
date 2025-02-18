@@ -10,8 +10,6 @@ using Microsoft.Extensions.Logging;
 
 namespace JOIEnergy
 {
-
-    // Program.cs
     // The main entry point for the ASP.NET Core application.
     public class Program
     {
